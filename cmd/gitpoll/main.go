@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -21,19 +22,56 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create root context for graceful shutdown
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	// 2. Initialize the Event Bus
 	eventBus := events.NewBus()
 
 	// 3. Initialize components
 	gitManager := git.NewManager(cfg.RepoDir, cfg.Branch)
 	cmdExecutor := executor.NewExecutor(cfg.Command)
-	repoPoller := poller.NewPoller(cfg.RepoURL, cfg.Branch, cfg.Interval, eventBus)
-	appTUI := tui.NewApp(eventBus)
+	repoPoller := poller.NewPoller(cfg.RepoURL, cfg.Branch, nil)
+	appTUI := tui.NewApp(eventBus, cancel) // Pass cancel to trigger on 'q' or 'ctrl+c'
+
+	// Channels to bridge to event bus
+	pollerCh := make(chan interface{}, 10)
+	logCh := make(chan string, 100)
+
+	// Route poller channel to bus
+	go func() {
+		for {
+			select {
+			case msg := <-pollerCh:
+				switch m := msg.(type) {
+				case events.UpdateDetectedMsg:
+					eventBus.Publish(events.RepoChanged, m)
+				case events.ErrorMsg:
+					eventBus.Publish(events.ErrorOccurred, m)
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+	// Route executor logs to bus
+	go func() {
+		for {
+			select {
+			case logLine := <-logCh:
+				eventBus.Publish(events.LogEmitted, events.LogEmittedMsg{Log: logLine})
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
 
 	// 4. Wire up event listeners
 	// When the poller detects a change, the git manager should pull
 	eventBus.Subscribe(events.RepoChanged, func(payload interface{}) {
-		err := gitManager.Pull()
+		err := gitManager.Pull(ctx)
 		if err != nil {
 			eventBus.Publish(events.ErrorOccurred, fmt.Errorf("git pull failed: %w", err))
 			return
@@ -43,7 +81,7 @@ func main() {
 
 	// When the repo is successfully updated, the executor should run the command
 	eventBus.Subscribe(events.RepoUpdated, func(payload interface{}) {
-		err := cmdExecutor.Execute()
+		err := cmdExecutor.Execute(ctx, logCh)
 		if err != nil {
 			eventBus.Publish(events.ErrorOccurred, fmt.Errorf("command execution failed: %w", err))
 			return
@@ -52,12 +90,15 @@ func main() {
 	})
 
 	// 5. Start background worker (Poller)
-	go repoPoller.Start()
+	go repoPoller.Start(ctx, pollerCh)
 
 	// 6. Start TUI (Blocks until exit)
-	p := tea.NewProgram(appTUI)
+	p := tea.NewProgram(appTUI, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running TUI: %v\n", err)
+		cancel() // Ensure background tasks are canceled if TUI fails
 		os.Exit(1)
 	}
+
+	// At this point TUI exited, context is canceled.
 }
