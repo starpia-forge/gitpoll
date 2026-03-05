@@ -103,9 +103,9 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.cancelFunc() // graceful shutdown trigger
 			return m, tea.Quit
 		case "up", "k":
-			m.viewport.LineUp(1)
+			m.viewport.ScrollUp(1)
 		case "down", "j":
-			m.viewport.LineDown(1)
+			m.viewport.ScrollDown(1)
 		}
 
 	case tea.WindowSizeMsg:
