@@ -1,7 +1,7 @@
 package server
 
 import (
-	"repo-watcher/internal/events"
+	"repo-gitpoll/internal/events"
 )
 
 // Server defines the interface for a web/API server (Web GUI)

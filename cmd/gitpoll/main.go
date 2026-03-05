@@ -5,12 +5,12 @@ import (
 	"os"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"repo-watcher/internal/config"
-	"repo-watcher/internal/events"
-	"repo-watcher/internal/executor"
-	"repo-watcher/internal/git"
-	"repo-watcher/internal/poller"
-	"repo-watcher/internal/tui"
+	"repo-gitpoll/internal/config"
+	"repo-gitpoll/internal/events"
+	"repo-gitpoll/internal/executor"
+	"repo-gitpoll/internal/git"
+	"repo-gitpoll/internal/poller"
+	"repo-gitpoll/internal/tui"
 )
 
 func main() {

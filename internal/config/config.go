@@ -17,13 +17,13 @@ type Config struct {
 // Load reads configuration from environment variables
 func Load() (*Config, error) {
 	cfg := &Config{
-		RepoURL: os.Getenv("WATCHER_REPO_URL"),
-		RepoDir: os.Getenv("WATCHER_REPO_DIR"),
-		Branch:  os.Getenv("WATCHER_BRANCH"),
-		Command: os.Getenv("WATCHER_COMMAND"),
+		RepoURL: os.Getenv("GITPOLL_REPO_URL"),
+		RepoDir: os.Getenv("GITPOLL_REPO_DIR"),
+		Branch:  os.Getenv("GITPOLL_BRANCH"),
+		Command: os.Getenv("GITPOLL_COMMAND"),
 	}
 
-	intervalStr := os.Getenv("WATCHER_INTERVAL")
+	intervalStr := os.Getenv("GITPOLL_INTERVAL")
 	if intervalStr != "" {
 		interval, err := time.ParseDuration(intervalStr)
 		if err != nil {
@@ -36,7 +36,7 @@ func Load() (*Config, error) {
 
 	// Basic validation (can be expanded)
 	if cfg.RepoURL == "" {
-		return nil, fmt.Errorf("WATCHER_REPO_URL environment variable is required")
+		return nil, fmt.Errorf("GITPOLL_REPO_URL environment variable is required")
 	}
 
 	return cfg, nil

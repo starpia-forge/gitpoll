@@ -3,7 +3,7 @@ package tui
 import (
 	"fmt"
 	tea "github.com/charmbracelet/bubbletea"
-	"repo-watcher/internal/events"
+	"repo-gitpoll/internal/events"
 )
 
 // MainModel holds the state for the TUI
@@ -48,7 +48,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *MainModel) View() string {
 	// Simple view
-	s := fmt.Sprintf("Repository Watcher TUI\n\nStatus: %s\nLast Updated: %s\n\n", m.status, m.lastUpdated)
+	s := fmt.Sprintf("Repository Gitpoll TUI\n\nStatus: %s\nLast Updated: %s\n\n", m.status, m.lastUpdated)
 	s += "Logs:\n"
 	for _, l := range m.log {
 		s += "- " + l + "\n"
