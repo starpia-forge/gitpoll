@@ -19,6 +19,7 @@ type GitClient interface {
 type defaultGitClient struct{}
 
 func (c *defaultGitClient) LsRemote(ctx context.Context, repoURL, branch string) (string, error) {
+	// #nosec G204 - command relies on variables but is explicitly internal to the background worker configuration
 	cmd := exec.CommandContext(ctx, "git", "ls-remote", repoURL, branch)
 	out, err := cmd.Output()
 	if err != nil {
@@ -111,6 +112,7 @@ func (p *defaultPoller) Start(ctx context.Context, out chan<- interface{}) {
 
 		jitter := time.Duration(0)
 		if p.maxJitter > 0 {
+			// #nosec G404 - weak random is acceptable for jitter
 			jitter = time.Duration(rand.Int63n(int64(p.maxJitter)))
 		}
 		nextTick := p.baseInterval + jitter
