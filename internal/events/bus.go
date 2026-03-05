@@ -8,6 +8,7 @@ const (
 	RepoUpdated     EventType = "REPO_UPDATED"
 	CommandExecuted EventType = "COMMAND_EXECUTED"
 	ErrorOccurred   EventType = "ERROR_OCCURRED"
+	LogEmitted      EventType = "LOG_EMITTED"
 )
 
 // Subscriber is a function type that handles events
