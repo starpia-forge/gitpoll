@@ -1,7 +1,7 @@
 package poller
 
 import (
-	"repo-watcher/internal/events"
+	"repo-gitpoll/internal/events"
 	"time"
 )
 

@@ -1,4 +1,4 @@
-module repo-watcher
+module repo-gitpoll
 
 go 1.24.3
 

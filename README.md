@@ -1,4 +1,4 @@
-# Repository Watcher
+# gitpoll
 
 A background worker program written in Go that monitors a target GitHub repository branch for changes. When a change is detected, it automatically pulls the latest state to the local machine and executes a specified command.
 
@@ -35,7 +35,7 @@ The application is structured into four main components that communicate asynchr
 ```text
 .
 ├── cmd
-│   └── watcher
+│   └── gitpoll
 │       └── main.go           # Application entry point, component initialization & wiring
 ├── internal
 │   ├── config                # Environment variable parsing and configuration models
@@ -57,11 +57,11 @@ Configuration is injected strictly through Environment Variables.
 
 | Variable | Description | Default | Required |
 | --- | --- | --- | --- |
-| `WATCHER_REPO_URL` | The URL of the GitHub repository to watch | | Yes |
-| `WATCHER_REPO_DIR` | The local directory where the repository is/will be cloned | | Yes |
-| `WATCHER_BRANCH` | The branch name to monitor | `main` | No |
-| `WATCHER_COMMAND` | The command to execute after a successful git pull | | Yes |
-| `WATCHER_INTERVAL` | The interval duration for polling (e.g., `30s`, `1m`) | `1m` | No |
+| `GITPOLL_REPO_URL` | The URL of the GitHub repository to watch | | Yes |
+| `GITPOLL_REPO_DIR` | The local directory where the repository is/will be cloned | | Yes |
+| `GITPOLL_BRANCH` | The branch name to monitor | `main` | No |
+| `GITPOLL_COMMAND` | The command to execute after a successful git pull | | Yes |
+| `GITPOLL_INTERVAL` | The interval duration for polling (e.g., `30s`, `1m`) | `1m` | No |
 
 ### Running the Application
 
@@ -70,15 +70,15 @@ Configuration is injected strictly through Environment Variables.
 3. Export the necessary environment variables:
 
 ```bash
-export WATCHER_REPO_URL="https://github.com/user/repo.git"
-export WATCHER_REPO_DIR="/path/to/local/repo"
-export WATCHER_BRANCH="main"
-export WATCHER_COMMAND="systemctl restart my-service"
-export WATCHER_INTERVAL="30s"
+export GITPOLL_REPO_URL="https://github.com/user/repo.git"
+export GITPOLL_REPO_DIR="/path/to/local/repo"
+export GITPOLL_BRANCH="main"
+export GITPOLL_COMMAND="systemctl restart my-service"
+export GITPOLL_INTERVAL="30s"
 ```
 
 4. Run the program:
 
 ```bash
-go run ./cmd/watcher/main.go
+go run ./cmd/gitpoll/main.go
 ```
