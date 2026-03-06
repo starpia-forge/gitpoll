@@ -33,13 +33,13 @@ func TestManager_Pull_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create remote temp dir: %v", err)
 	}
-	defer os.RemoveAll(remotePath)
+	defer func() { _ = os.RemoveAll(remotePath) }()
 
 	localPath, err := os.MkdirTemp("", "git-local-*")
 	if err != nil {
 		t.Fatalf("Failed to create local temp dir: %v", err)
 	}
-	defer os.RemoveAll(localPath)
+	defer func() { _ = os.RemoveAll(localPath) }()
 
 	remoteRepo, err := gogit.PlainInit(remotePath, false)
 	if err != nil {
@@ -55,10 +55,16 @@ func TestManager_Pull_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create file: %v", err)
 	}
-	f.Write([]byte("initial content"))
-	f.Close()
+	if _, err := f.Write([]byte("initial content")); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatalf("failed to close: %v", err)
+	}
 
-	wRemote.Add("test.txt")
+	if _, err := wRemote.Add("test.txt"); err != nil {
+		t.Fatalf("failed to add: %v", err)
+	}
 	_, err = wRemote.Commit("Initial commit", &gogit.CommitOptions{
 		Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
 	})
@@ -86,9 +92,15 @@ func TestManager_Pull_Success(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create dummy file: %v", err)
 	}
-	fLocal.Write([]byte("dummy content"))
-	fLocal.Close()
-	wLocal.Add("dummy.txt")
+	if _, err := fLocal.Write([]byte("dummy content")); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+	if err := fLocal.Close(); err != nil {
+		t.Fatalf("failed to close: %v", err)
+	}
+	if _, err := wLocal.Add("dummy.txt"); err != nil {
+		t.Fatalf("failed to add: %v", err)
+	}
 	_, err = wLocal.Commit("Dummy commit", &gogit.CommitOptions{
 		Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
 	})
@@ -127,7 +139,7 @@ func TestManager_Pull_Failure_Fetch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create local temp dir: %v", err)
 	}
-	defer os.RemoveAll(localPath)
+	defer func() { _ = os.RemoveAll(localPath) }()
 
 	localRepo, err := gogit.PlainInit(localPath, false)
 	if err != nil {
@@ -143,9 +155,15 @@ func TestManager_Pull_Failure_Fetch(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create dummy file: %v", err)
 	}
-	fLocal.Write([]byte("dummy content"))
-	fLocal.Close()
-	wLocal.Add("dummy.txt")
+	if _, err := fLocal.Write([]byte("dummy content")); err != nil {
+		t.Fatalf("failed to write: %v", err)
+	}
+	if err := fLocal.Close(); err != nil {
+		t.Fatalf("failed to close: %v", err)
+	}
+	if _, err := wLocal.Add("dummy.txt"); err != nil {
+		t.Fatalf("failed to add: %v", err)
+	}
 	_, err = wLocal.Commit("Dummy commit", &gogit.CommitOptions{
 		Author: &object.Signature{Name: "Test", Email: "test@example.com", When: time.Now()},
 	})
