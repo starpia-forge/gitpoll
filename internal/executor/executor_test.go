@@ -47,13 +47,54 @@ func TestExecutor_ContextCancellation(t *testing.T) {
 	logCh := make(chan string, 10)
 	ctx, cancel := context.WithCancel(context.Background())
 
+	start := time.Now()
 	go func() {
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(200 * time.Millisecond)
 		cancel()
 	}()
 
 	err := e.Execute(ctx, logCh)
+	duration := time.Since(start)
+
 	if err == nil {
 		t.Fatal("Expected error due to cancellation, got nil")
+	}
+
+	if duration > 2*time.Second {
+		t.Fatalf("Cancellation took too long, expected < 2s, got %v", duration)
+	}
+}
+
+func TestExecutor_ProcessGroupKill(t *testing.T) {
+	// A script that creates a long running child process
+	// We use 'sh -c' inherently in Execute.
+	// So we can just launch a shell loop that ignores simple signals
+	// or sleeps in a loop.
+	script := `
+while true; do
+  sleep 1
+done
+`
+	cfg := &config.Config{Command: script}
+	e := NewExecutor(cfg)
+
+	logCh := make(chan string, 10)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	start := time.Now()
+	go func() {
+		time.Sleep(300 * time.Millisecond)
+		cancel()
+	}()
+
+	err := e.Execute(ctx, logCh)
+	duration := time.Since(start)
+
+	if err == nil {
+		t.Fatal("Expected error due to cancellation, got nil")
+	}
+
+	if duration > 2*time.Second {
+		t.Fatalf("Process group kill failed or took too long, got %v", duration)
 	}
 }

@@ -18,6 +18,10 @@ var (
 	infoStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	errorStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("9"))
 	logStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
+	boxStyle   = lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("62")).
+			Padding(0, 1)
 )
 
 // MonitorModel holds the state for the TUI monitor
@@ -105,23 +109,42 @@ func (m *MonitorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "q", "ctrl+c":
 			m.cancelFunc() // graceful shutdown trigger
 			return m, tea.Quit
-		case "up", "k":
-			m.viewport.ScrollUp(1)
-		case "down", "j":
-			m.viewport.ScrollDown(1)
 		}
+		// Forward other key events to viewport (handles up, down, pgup, pgdown, mouse wheel, etc.)
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
+
+	case tea.MouseMsg:
+		var cmd tea.Cmd
+		m.viewport, cmd = m.viewport.Update(msg)
+		cmds = append(cmds, cmd)
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		headerHeight := 8
+		headerHeight := lipgloss.Height(m.headerView()) + 2 // include footer and margins
+
+		// The box style uses borders, which consumes space. Let's calculate inner dimensions.
+		h, v := boxStyle.GetFrameSize()
+
+		vpWidth := msg.Width - h - 2
+		vpHeight := msg.Height - headerHeight - v
+
+		if vpWidth < 0 {
+			vpWidth = 0
+		}
+		if vpHeight < 0 {
+			vpHeight = 0
+		}
+
 		if !m.ready {
-			m.viewport = viewport.New(msg.Width, msg.Height-headerHeight)
+			m.viewport = viewport.New(vpWidth, vpHeight)
 			m.viewport.SetContent(strings.Join(m.logs, "\n"))
 			m.ready = true
 		} else {
-			m.viewport.Width = msg.Width
-			m.viewport.Height = msg.Height - headerHeight
+			m.viewport.Width = vpWidth
+			m.viewport.Height = vpHeight
 		}
 
 	case events.UpdateDetectedMsg:
@@ -158,11 +181,7 @@ func (m *MonitorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *MonitorModel) View() string {
-	if !m.ready {
-		return "\n  Initializing... (Waiting for resize event to set viewport)"
-	}
-
+func (m *MonitorModel) headerView() string {
 	title := titleStyle.Render("Gitpoll TUI")
 	statusLine := fmt.Sprintf("Status: %s", m.status)
 	hashLine := fmt.Sprintf("Latest Commit: %s", m.latestHash)
@@ -176,11 +195,24 @@ func (m *MonitorModel) View() string {
 	}
 
 	logHeader := infoStyle.Render("--- Execution Logs ---")
+	return fmt.Sprintf("%s\n%s", header, logHeader)
+}
 
-	body := fmt.Sprintf("%s\n%s\n%s\n", header, logHeader, logStyle.Render(m.viewport.View()))
-	footer := infoStyle.Render("\nPress 'q' or 'Ctrl+C' to quit. Use Up/Down arrows to scroll logs.")
+func (m *MonitorModel) View() string {
+	if !m.ready {
+		return "\n  Initializing... (Waiting for resize event to set viewport)"
+	}
 
-	return body + footer
+	header := m.headerView()
+
+	// Wrap viewport in a styled box
+	viewportView := boxStyle.
+		Width(m.width - 2). // adjust width
+		Render(logStyle.Render(m.viewport.View()))
+
+	footer := infoStyle.Render("Press 'q' or 'Ctrl+C' to quit. Use Up/Down arrows to scroll logs.")
+
+	return fmt.Sprintf("%s\n%s\n%s", header, viewportView, footer)
 }
 
 type MainState int
