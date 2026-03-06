@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+
+	"repo-gitpoll/internal/config"
 )
 
 // CmdRunner abstracts os/exec for testing
@@ -32,10 +34,10 @@ type defaultGitManager struct {
 }
 
 // NewManager creates a new instance of a git manager
-func NewManager(dir, branch string) Manager {
+func NewManager(cfg *config.Config) Manager {
 	return &defaultGitManager{
-		repoDir: dir,
-		branch:  branch,
+		repoDir: cfg.RepoDir,
+		branch:  cfg.Branch,
 		runner:  &defaultCmdRunner{},
 	}
 }

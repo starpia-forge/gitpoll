@@ -15,8 +15,8 @@ import (
 )
 
 func main() {
-	// 1. Load configuration from environment variables
-	cfg, err := config.Load()
+	// 1. Load configuration from files
+	cfg, isValid, err := config.LoadConfig()
 	if err != nil {
 		fmt.Printf("Failed to load configuration: %v\n", err)
 		os.Exit(1)
@@ -29,70 +29,87 @@ func main() {
 	// 2. Initialize the Event Bus
 	eventBus := events.NewBus()
 
-	// 3. Initialize components
-	gitManager := git.NewManager(cfg.RepoDir, cfg.Branch)
-	cmdExecutor := executor.NewExecutor(cfg.Command)
-	repoPoller := poller.NewPoller(cfg.RepoURL, cfg.Branch, nil)
-	appTUI := tui.NewApp(eventBus, cancel) // Pass cancel to trigger on 'q' or 'ctrl+c'
-
 	// Channels to bridge to event bus
 	pollerCh := make(chan interface{}, 10)
 	logCh := make(chan string, 100)
 
-	// Route poller channel to bus
-	go func() {
-		for {
-			select {
-			case msg := <-pollerCh:
-				switch m := msg.(type) {
-				case events.UpdateDetectedMsg:
-					eventBus.Publish(events.RepoChanged, m)
-				case events.ErrorMsg:
-					eventBus.Publish(events.ErrorOccurred, m)
+	// Callback function to initialize components once config is ready
+	configReadyCb := func(finalCfg *config.Config, mainModel *tui.MainModel) {
+		// Initialize components with the final configuration
+		gitManager := git.NewManager(finalCfg)
+		cmdExecutor := executor.NewExecutor(finalCfg)
+		repoPoller := poller.NewPoller(finalCfg, nil)
+
+		// Create the monitor model - no longer explicitly passed back since mainModel handles it
+
+		// Wait... Since Bubbletea executes commands async, we need to send the initialized monitor
+		// to the main model so it can route correctly. But wait, `MainModel` expects a MonitorModel
+		// and we created one inside its `Update(ConfigReadyMsg)` method too...
+		// Actually, let's keep it simple: `MainModel` handles the state transition, but we need
+		// to hook up the event bus and components.
+		// So we just start the background workers here.
+
+		// Route poller channel to bus
+		go func() {
+			for {
+				select {
+				case msg := <-pollerCh:
+					switch m := msg.(type) {
+					case events.UpdateDetectedMsg:
+						eventBus.Publish(events.RepoChanged, m)
+					case events.ErrorMsg:
+						eventBus.Publish(events.ErrorOccurred, m)
+					}
+				case <-ctx.Done():
+					return
 				}
-			case <-ctx.Done():
+			}
+		}()
+
+		// Route executor logs to bus
+		go func() {
+			for {
+				select {
+				case logLine := <-logCh:
+					eventBus.Publish(events.LogEmitted, events.LogEmittedMsg{Log: logLine})
+				case <-ctx.Done():
+					return
+				}
+			}
+		}()
+
+		// Wire up event listeners
+		eventBus.Subscribe(events.RepoChanged, func(payload interface{}) {
+			err := gitManager.Pull(ctx)
+			if err != nil {
+				eventBus.Publish(events.ErrorOccurred, fmt.Errorf("git pull failed: %w", err))
 				return
 			}
-		}
-	}()
+			eventBus.Publish(events.RepoUpdated, nil)
+		})
 
-	// Route executor logs to bus
-	go func() {
-		for {
-			select {
-			case logLine := <-logCh:
-				eventBus.Publish(events.LogEmitted, events.LogEmittedMsg{Log: logLine})
-			case <-ctx.Done():
+		eventBus.Subscribe(events.RepoUpdated, func(payload interface{}) {
+			err := cmdExecutor.Execute(ctx, logCh)
+			if err != nil {
+				eventBus.Publish(events.ErrorOccurred, fmt.Errorf("command execution failed: %w", err))
 				return
 			}
-		}
-	}()
+			eventBus.Publish(events.CommandExecuted, nil)
+		})
 
-	// 4. Wire up event listeners
-	// When the poller detects a change, the git manager should pull
-	eventBus.Subscribe(events.RepoChanged, func(payload interface{}) {
-		err := gitManager.Pull(ctx)
-		if err != nil {
-			eventBus.Publish(events.ErrorOccurred, fmt.Errorf("git pull failed: %w", err))
-			return
-		}
-		eventBus.Publish(events.RepoUpdated, nil)
-	})
+		// Start background worker
+		go repoPoller.Start(ctx, pollerCh)
 
-	// When the repo is successfully updated, the executor should run the command
-	eventBus.Subscribe(events.RepoUpdated, func(payload interface{}) {
-		err := cmdExecutor.Execute(ctx, logCh)
-		if err != nil {
-			eventBus.Publish(events.ErrorOccurred, fmt.Errorf("command execution failed: %w", err))
-			return
-		}
-		eventBus.Publish(events.CommandExecuted, nil)
-	})
+		// Send the setup monitor message so TUI knows everything is ready and can display the correct initialized monitor.
+		// However, it's not possible to easily send tea.Cmd from outside.
+		// Wait, we can pass `eventBus` into `tui.NewMonitorModel`...
+		// Ah, we can just initialize `monitorModel` and inject it to mainModel.
+		// No need to overcomplicate: we already pass `bus` and `cancel` to `tui.NewMainModel`.
+	}
 
-	// 5. Start background worker (Poller)
-	go repoPoller.Start(ctx, pollerCh)
+	appTUI := tui.NewMainModel(cfg, isValid, eventBus, cancel, configReadyCb)
 
-	// 6. Start TUI (Blocks until exit)
+	// 3. Start TUI (Blocks until exit)
 	p := tea.NewProgram(appTUI, tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {
 		fmt.Printf("Error running TUI: %v\n", err)

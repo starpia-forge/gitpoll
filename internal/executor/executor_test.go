@@ -5,10 +5,13 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"repo-gitpoll/internal/config"
 )
 
 func TestExecutor_Execute(t *testing.T) {
-	e := NewExecutor("echo 'hello world'")
+	cfg := &config.Config{Command: "echo 'hello world'"}
+	e := NewExecutor(cfg)
 
 	logCh := make(chan string, 10)
 	ctx, cancel := context.WithCancel(context.Background())
@@ -38,7 +41,8 @@ func TestExecutor_Execute(t *testing.T) {
 }
 
 func TestExecutor_ContextCancellation(t *testing.T) {
-	e := NewExecutor("sleep 5")
+	cfg := &config.Config{Command: "sleep 5"}
+	e := NewExecutor(cfg)
 
 	logCh := make(chan string, 10)
 	ctx, cancel := context.WithCancel(context.Background())

@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"repo-gitpoll/internal/config"
 )
 
 type mockCmdRunner struct {
@@ -18,7 +20,8 @@ func (m *mockCmdRunner) Run(ctx context.Context, dir, command string, args ...st
 
 func TestManager_Pull_Success(t *testing.T) {
 	runner := &mockCmdRunner{}
-	m := NewManager("/tmp/repo", "main")
+	cfg := &config.Config{RepoDir: "/tmp/repo", Branch: "main"}
+	m := NewManager(cfg)
 	m.(*defaultGitManager).runner = runner
 
 	err := m.Pull(context.Background())
@@ -33,7 +36,8 @@ func TestManager_Pull_Success(t *testing.T) {
 
 func TestManager_Pull_Failure(t *testing.T) {
 	runner := &mockCmdRunner{errToReturn: errors.New("git error")}
-	m := NewManager("/tmp/repo", "main")
+	cfg := &config.Config{RepoDir: "/tmp/repo", Branch: "main"}
+	m := NewManager(cfg)
 	m.(*defaultGitManager).runner = runner
 
 	err := m.Pull(context.Background())

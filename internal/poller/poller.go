@@ -7,6 +7,7 @@ import (
 	"time"
 	"os/exec"
 
+	"repo-gitpoll/internal/config"
 	"repo-gitpoll/internal/events"
 )
 
@@ -51,15 +52,21 @@ type defaultPoller struct {
 	lastHash string
 }
 
-func NewPoller(url, branch string, client GitClient) Poller {
+func NewPoller(cfg *config.Config, client GitClient) Poller {
 	if client == nil {
 		client = &defaultGitClient{}
 	}
+
+	interval := cfg.Interval
+	if interval == 0 {
+		interval = 30 * time.Second
+	}
+
 	return &defaultPoller{
-		repoURL:      url,
-		branch:       branch,
+		repoURL:      cfg.RepoURL,
+		branch:       cfg.Branch,
 		client:       client,
-		baseInterval: 10 * time.Second,
+		baseInterval: interval,
 		maxJitter:    20 * time.Second,
 		backoffBase:  5 * time.Second,
 		backoffMax:   5 * time.Minute,
