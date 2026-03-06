@@ -17,8 +17,6 @@ type ConfigReadyMsg struct {
 type WizardModel struct {
 	form          *huh.Form
 	initialConfig *config.Config
-	width         int
-	height        int
 }
 
 func NewWizardModel(initialConfig *config.Config) *WizardModel {
@@ -180,7 +178,10 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		if err := config.Save(newConfig, savePath); err != nil {
-			// Handle save error, fallback or print
+			// If save fails, we proceed with the new config in memory anyway,
+			// but we could emit an error message or log it.
+			// For now, just continue.
+			_ = err
 		}
 
 		return m, func() tea.Msg {
