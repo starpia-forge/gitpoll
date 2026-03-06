@@ -41,18 +41,9 @@ func UnmarshalString(data string, v any) error {
 	return Unmarshal([]byte(data), v)
 }
 
-// GetGlobalConfigPath returns the path to the global configuration file
-func GetGlobalConfigPath() (string, error) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-	return filepath.Join(homeDir, ".config", "gitpoll", "config.json"), nil
-}
-
 // GetLocalConfigPath returns the path to the local configuration file
 func GetLocalConfigPath() string {
-	return "./.gitpoll.json"
+	return "./gitpoll.config.json"
 }
 
 // Save writes the configuration to the specified path
@@ -92,63 +83,25 @@ func loadFromFile(path string) (*Config, error) {
 	return &cfg, nil
 }
 
-// Merge overrides the fields of base with the non-empty fields of override
-func Merge(base, override *Config) *Config {
-	if base == nil {
-		base = &Config{}
-	}
-
-	merged := *base // Copy base
-
-	if override == nil {
-		return &merged
-	}
-
-	if override.RepoURL != "" {
-		merged.RepoURL = override.RepoURL
-	}
-	if override.RepoDir != "" {
-		merged.RepoDir = override.RepoDir
-	}
-	if override.Branch != "" {
-		merged.Branch = override.Branch
-	}
-	if override.Command != "" {
-		merged.Command = override.Command
-	}
-	if override.Interval != 0 {
-		merged.Interval = override.Interval
-	}
-
-	return &merged
-}
-
-// LoadConfig reads global and local configs, merges them, and checks if the config is fully valid
+// LoadConfig reads local config and checks if the config is fully valid
 func LoadConfig() (*Config, bool, error) {
-	globalPath, err := GetGlobalConfigPath()
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to get global config path: %w", err)
-	}
 	localPath := GetLocalConfigPath()
 
-	globalCfg, err := loadFromFile(globalPath)
+	cfg, err := loadFromFile(localPath)
 	if err != nil {
-		return nil, false, fmt.Errorf("failed to load global config: %w", err)
+		return nil, false, fmt.Errorf("failed to load config: %w", err)
 	}
 
-	localCfg, err := loadFromFile(localPath)
-	if err != nil {
-		return nil, false, fmt.Errorf("failed to load local config: %w", err)
+	if cfg == nil {
+		return nil, false, nil
 	}
-
-	mergedCfg := Merge(globalCfg, localCfg)
 
 	// Determine if config is completely valid
-	isValid := mergedCfg.RepoURL != "" &&
-		mergedCfg.RepoDir != "" &&
-		mergedCfg.Branch != "" &&
-		mergedCfg.Command != "" &&
-		mergedCfg.Interval > 0
+	isValid := cfg.RepoURL != "" &&
+		cfg.RepoDir != "" &&
+		cfg.Branch != "" &&
+		cfg.Command != "" &&
+		cfg.Interval > 0
 
-	return mergedCfg, isValid, nil
+	return cfg, isValid, nil
 }

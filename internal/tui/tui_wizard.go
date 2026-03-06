@@ -2,13 +2,23 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"repo-gitpoll/internal/config"
 )
+
+const asciiArt = `  ____ _ _   ____       _ _
+ / ___(_) |_|  _ \ ___ | | |
+| |  _| | __| |_) / _ \| | |
+| |_| | | |_|  __/ (_) | | |
+ \____|_|\__|_|   \___/|_|_|`
+
+var asciiArtStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("63")).Bold(true)
 
 type ConfigReadyMsg struct {
 	Config *config.Config
@@ -20,39 +30,27 @@ type WizardModel struct {
 }
 
 func NewWizardModel(initialConfig *config.Config) *WizardModel {
-	if initialConfig == nil {
-		initialConfig = &config.Config{
-			Branch:   "main",
-			Command:  "make",
-			Interval: 30 * time.Second,
-		}
-	} else {
-		if initialConfig.Branch == "" {
-			initialConfig.Branch = "main"
-		}
-		if initialConfig.Command == "" {
-			initialConfig.Command = "make"
-		}
-		if initialConfig.Interval == 0 {
-			initialConfig.Interval = 30 * time.Second
-		}
+	m := &WizardModel{
+		initialConfig: initialConfig,
+	}
+	m.createForm()
+	return m
+}
+
+func (m *WizardModel) createForm() {
+	var repoURL, repoDir, branch, command, intervalStr string
+	var confirm bool
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		cwd = "."
 	}
 
-	var repoURL, repoDir, branch, command, intervalStr string
-	var saveLocation string
-
-	repoURL = initialConfig.RepoURL
-	repoDir = initialConfig.RepoDir
-	branch = initialConfig.Branch
-	command = initialConfig.Command
-	intervalStr = fmt.Sprintf("%d", int(initialConfig.Interval.Seconds()))
-	saveLocation = "local" // default
-
-	form := huh.NewForm(
+	m.form = huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
 				Key("repoURL").
-				Title("Git Repository URL").
+				Title("Git Repository URL\n[example: https://github.com/starpia-forge/gitpoll.git]").
 				Value(&repoURL).
 				Validate(func(str string) error {
 					if str == "" {
@@ -60,72 +58,74 @@ func NewWizardModel(initialConfig *config.Config) *WizardModel {
 					}
 					return nil
 				}),
-
+		),
+		huh.NewGroup(
 			huh.NewInput().
 				Key("repoDir").
-				Title("Local Repository Directory").
-				Value(&repoDir).
-				Validate(func(str string) error {
-					if str == "" {
-						return fmt.Errorf("local directory is required")
-					}
-					return nil
-				}),
-
+				Title(fmt.Sprintf("Local Repository Directory\n[default: %s]", cwd)).
+				Value(&repoDir),
+		),
+		huh.NewGroup(
 			huh.NewInput().
 				Key("branch").
-				Title("Branch to Monitor").
-				Value(&branch).
-				Validate(func(str string) error {
-					if str == "" {
-						return fmt.Errorf("branch is required")
-					}
-					return nil
-				}),
-
+				Title("Branch to Monitor\n[default: main]").
+				Value(&branch),
+		),
+		huh.NewGroup(
 			huh.NewInput().
 				Key("command").
-				Title("Command to Execute on Update").
-				Value(&command).
-				Validate(func(str string) error {
-					if str == "" {
-						return fmt.Errorf("command is required")
-					}
-					return nil
-				}),
-
+				Title("Command to Execute on Update\n[default: make]").
+				Value(&command),
+		),
+		huh.NewGroup(
 			huh.NewInput().
 				Key("interval").
-				Title("Polling Interval (seconds)").
+				Title("Polling Interval (seconds)\n[default: 30]").
 				Value(&intervalStr).
 				Validate(func(str string) error {
-					if str == "" {
-						return fmt.Errorf("interval is required")
-					}
-					if _, err := strconv.Atoi(str); err != nil {
-						return fmt.Errorf("interval must be an integer")
+					if str != "" {
+						if _, err := strconv.Atoi(str); err != nil {
+							return fmt.Errorf("interval must be an integer")
+						}
 					}
 					return nil
 				}),
 		),
 		huh.NewGroup(
-			huh.NewSelect[string]().
-				Key("saveLocation").
-				Title("Where would you like to save this configuration?").
-				Options(
-					huh.NewOption("Local (.gitpoll.json)", "local"),
-					huh.NewOption("Global (~/.config/gitpoll/config.json)", "global"),
-				).
-				Value(&saveLocation),
+			huh.NewConfirm().
+				Key("confirm").
+				TitleFunc(func() string {
+					url := m.form.GetString("repoURL")
+					dir := m.form.GetString("repoDir")
+					if dir == "" {
+						dir = cwd
+					}
+					b := m.form.GetString("branch")
+					if b == "" {
+						b = "main"
+					}
+					c := m.form.GetString("command")
+					if c == "" {
+						c = "make"
+					}
+					iStr := m.form.GetString("interval")
+					if iStr == "" {
+						iStr = "30"
+					}
+
+					return fmt.Sprintf("Summary of settings:\n\n"+
+						"Repository URL: %s\n"+
+						"Local Directory: %s\n"+
+						"Branch: %s\n"+
+						"Command: %s\n"+
+						"Interval: %s seconds\n\n"+
+						"Proceed with these settings?", url, dir, b, c, iStr)
+				}, &repoURL).
+				Value(&confirm),
 		),
 	)
 
-	form.Init()
-
-	return &WizardModel{
-		form:          form,
-		initialConfig: initialConfig,
-	}
+	m.form.Init()
 }
 
 func (m *WizardModel) Init() tea.Cmd {
@@ -147,13 +147,35 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.form.State == huh.StateCompleted {
+		confirm := m.form.GetBool("confirm")
+		if !confirm {
+			m.createForm()
+			return m, m.form.Init()
+		}
+
 		// Extract values
 		repoURL := m.form.GetString("repoURL")
 		repoDir := m.form.GetString("repoDir")
 		branch := m.form.GetString("branch")
 		command := m.form.GetString("command")
 		intervalStr := m.form.GetString("interval")
-		saveLocation := m.form.GetString("saveLocation")
+
+		if repoDir == "" {
+			cwd, err := os.Getwd()
+			if err != nil {
+				cwd = "."
+			}
+			repoDir = cwd
+		}
+		if branch == "" {
+			branch = "main"
+		}
+		if command == "" {
+			command = "make"
+		}
+		if intervalStr == "" {
+			intervalStr = "30"
+		}
 
 		intervalSeconds, _ := strconv.Atoi(intervalStr)
 
@@ -165,17 +187,7 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			Interval: time.Duration(intervalSeconds) * time.Second,
 		}
 
-		var savePath string
-		var err error
-		if saveLocation == "global" {
-			savePath, err = config.GetGlobalConfigPath()
-			if err != nil {
-				// We should ideally show error in UI, but for now we fallback to local or panic
-				savePath = config.GetLocalConfigPath()
-			}
-		} else {
-			savePath = config.GetLocalConfigPath()
-		}
+		savePath := config.GetLocalConfigPath()
 
 		if err := config.Save(newConfig, savePath); err != nil {
 			// If save fails, we proceed with the new config in memory anyway,
@@ -193,5 +205,5 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *WizardModel) View() string {
-	return m.form.View()
+	return asciiArtStyle.Render(asciiArt) + "\n\n" + m.form.View()
 }
