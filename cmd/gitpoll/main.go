@@ -78,6 +78,9 @@ func main() {
 			}
 		}()
 
+		var execCancel context.CancelFunc
+		var execDone chan struct{}
+
 		// Wire up event listeners
 		eventBus.Subscribe(events.RepoChanged, func(payload interface{}) {
 			err := gitManager.Pull(ctx)
@@ -89,12 +92,35 @@ func main() {
 		})
 
 		eventBus.Subscribe(events.RepoUpdated, func(payload interface{}) {
-			err := cmdExecutor.Execute(ctx, logCh)
-			if err != nil {
-				eventBus.Publish(events.ErrorOccurred, fmt.Errorf("command execution failed: %w", err))
-				return
+			// Stop previous execution AFTER code is successfully pulled
+			if execCancel != nil {
+				execCancel()
+				// Wait for it to cleanly shut down
+				if execDone != nil {
+					<-execDone
+				}
+				execCancel = nil
+				execDone = nil
 			}
-			eventBus.Publish(events.CommandExecuted, nil)
+
+			// Start new execution
+			var execCtx context.Context
+			execCtx, execCancel = context.WithCancel(ctx)
+			execDone = make(chan struct{})
+
+			go func(c context.Context, done chan struct{}) {
+				defer close(done)
+				err := cmdExecutor.Execute(c, logCh)
+				if err != nil {
+					// Check if context was canceled, ignore error if it was a deliberate cancel
+					if c.Err() == context.Canceled {
+						return
+					}
+					eventBus.Publish(events.ErrorOccurred, fmt.Errorf("command execution failed: %w", err))
+					return
+				}
+				eventBus.Publish(events.CommandExecuted, nil)
+			}(execCtx, execDone)
 		})
 
 		// Start background worker

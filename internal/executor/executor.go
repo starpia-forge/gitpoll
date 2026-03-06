@@ -30,6 +30,13 @@ func NewExecutor(cfg *config.Config) Executor {
 func (e *defaultExecutor) Execute(ctx context.Context, logCh chan<- string) error {
 	// #nosec G204 - shell execution explicitly requested by gitpoll design
 	cmd := exec.CommandContext(ctx, "sh", "-c", e.command)
+	setProcessGroup(cmd)
+
+	// In Go 1.20+, we can use cmd.Cancel to override how the process is killed
+	// when the context expires.
+	cmd.Cancel = func() error {
+		return killProcessGroup(cmd)
+	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
