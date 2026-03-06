@@ -55,37 +55,28 @@ The application is structured into four main components that communicate asynchr
 
 ## Setup & Configuration
 
-Configuration is injected strictly through Environment Variables.
+Configuration is managed securely through JSON files and an interactive TUI setup wizard.
 
-### Environment Variables
+### Configuration Files
 
-| Variable | Description | Default | Required |
-| --- | --- | --- | --- |
-| `GITPOLL_REPO_URL` | The URL of the GitHub repository to watch | | Yes |
-| `GITPOLL_REPO_DIR` | The local directory where the repository is/will be cloned | | Yes |
-| `GITPOLL_BRANCH` | The branch name to monitor | `main` | No |
-| `GITPOLL_COMMAND` | The command to execute after a successful git pull | | Yes |
-| `GITPOLL_INTERVAL` | The interval duration for polling (e.g., `30s`, `1m`) | `1m` | No |
+`gitpoll` uses a hierarchical JSON configuration system. You do not need to create these files manually; the application provides an interactive setup wizard that will generate them for you if they are missing.
+
+- **Global Configuration**: `~/.config/gitpoll/config.json`
+- **Local Configuration**: `./.gitpoll.json` (Overrides global configuration)
+
+When the application starts, it will merge the local configuration over the global configuration.
 
 ### Running the Application
 
-1. Ensure you have Go installed.
-2. Clone this repository and navigate to its root directory.
-3. Export the necessary environment variables:
+1. Download the latest pre-built binary from the GitHub Releases page, or build it yourself (`go build ./cmd/gitpoll`).
+2. Run the executable:
 
 ```bash
-export GITPOLL_REPO_URL="https://github.com/user/repo.git"
-export GITPOLL_REPO_DIR="/path/to/local/repo"
-export GITPOLL_BRANCH="main"
-export GITPOLL_COMMAND="systemctl restart my-service"
-export GITPOLL_INTERVAL="30s"
+./gitpoll
 ```
 
-4. Run the program:
-
-```bash
-go run ./cmd/gitpoll/main.go
-```
+3. If this is your first time running the program or if the configuration is incomplete, an interactive **Setup Wizard** will launch.
+4. Follow the on-screen prompts in the terminal to configure the repository URL, branch, local directory, polling interval, and execution command. The wizard will save your preferences to the appropriate configuration file.
 
 ## License
 
