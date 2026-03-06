@@ -53,35 +53,6 @@ func TestMarshalUnmarshalString(t *testing.T) {
 	}
 }
 
-func TestMerge(t *testing.T) {
-	global := &Config{
-		RepoURL:  "global_url",
-		Branch:   "global_branch",
-		Interval: 60 * time.Second,
-	}
-
-	local := &Config{
-		Branch:   "local_branch",
-		Command:  "local_command",
-		Interval: 30 * time.Second,
-	}
-
-	merged := Merge(global, local)
-
-	if merged.RepoURL != "global_url" {
-		t.Errorf("Expected global_url, got %s", merged.RepoURL)
-	}
-	if merged.Branch != "local_branch" {
-		t.Errorf("Expected local_branch, got %s", merged.Branch)
-	}
-	if merged.Command != "local_command" {
-		t.Errorf("Expected local_command, got %s", merged.Command)
-	}
-	if merged.Interval != 30*time.Second {
-		t.Errorf("Expected 30s, got %v", merged.Interval)
-	}
-}
-
 func TestLoadConfig_MissingFile(t *testing.T) {
 	// Creating temp dir to override paths
 	tempDir := t.TempDir()

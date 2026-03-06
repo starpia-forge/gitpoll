@@ -55,16 +55,13 @@ The application is structured into four main components that communicate asynchr
 
 ## Setup & Configuration
 
-Configuration is managed securely through JSON files and an interactive TUI setup wizard.
+Configuration is managed locally through a JSON file and an interactive TUI setup wizard.
 
 ### Configuration Files
 
-`gitpoll` uses a hierarchical JSON configuration system. You do not need to create these files manually; the application provides an interactive setup wizard that will generate them for you if they are missing.
+`gitpoll` uses a local JSON configuration system. You do not need to create this file manually; the application provides an interactive, paginated setup wizard that will generate it for you if it is missing.
 
-- **Global Configuration**: `~/.config/gitpoll/config.json`
-- **Local Configuration**: `./.gitpoll.json` (Overrides global configuration)
-
-When the application starts, it will merge the local configuration over the global configuration.
+- **Local Configuration**: `./gitpoll.config.json`
 
 ### Running the Application
 
@@ -75,8 +72,9 @@ When the application starts, it will merge the local configuration over the glob
 ./gitpoll
 ```
 
-3. If this is your first time running the program or if the configuration is incomplete, an interactive **Setup Wizard** will launch.
-4. Follow the on-screen prompts in the terminal to configure the repository URL, branch, local directory, polling interval, and execution command. The wizard will save your preferences to the appropriate configuration file.
+3. If this is your first time running the program or if the configuration is incomplete, an interactive **Setup Wizard** will launch, displaying the project's ASCII art header.
+4. Follow the paginated on-screen prompts in the terminal to configure the repository URL, local directory, branch, execution command, and polling interval. You can leave fields blank to use the suggested defaults shown in brackets.
+5. Review the summary of your settings and confirm to save them to `./gitpoll.config.json`.
 
 ## License
 
