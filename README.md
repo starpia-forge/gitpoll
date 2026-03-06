@@ -65,6 +65,7 @@ Configuration is managed locally through a JSON file and an interactive TUI setu
 
 ### Running the Application
 
+#### Option 1: Direct Execution
 1. Download the latest pre-built binary from the GitHub Releases page, or build it yourself (`go build ./cmd/gitpoll`).
 2. Run the executable:
 
@@ -75,6 +76,19 @@ Configuration is managed locally through a JSON file and an interactive TUI setu
 3. If this is your first time running the program or if the configuration is incomplete, an interactive **Setup Wizard** will launch, displaying the project's ASCII art header.
 4. Follow the paginated on-screen prompts in the terminal to configure the repository URL, local directory, branch, execution command, and polling interval. You can leave fields blank to use the suggested defaults shown in brackets.
 5. Review the summary of your settings and confirm to save them to `./gitpoll.config.json`.
+
+#### Option 2: Docker
+
+You can run `gitpoll` in a Docker container using the pre-built image hosted on Docker Hub. This method provides an isolated environment and requires no local installation other than Docker.
+
+```bash
+docker run -it \
+  -v $(pwd)/gitpoll.config.json:/app/gitpoll.config.json \
+  -v /path/to/your/local/repo:/app/repo \
+  starpia/gitpoll:latest
+```
+
+*Note: Since the application runs via a Terminal UI (TUI) and uses interactive prompts for setup, you need to use the `-it` flag. You should also mount your configuration file and target repository directory using `-v` so the container can access your data and save your settings persistently.*
 
 ## License
 
