@@ -14,6 +14,7 @@ type CmdRunner interface {
 type defaultCmdRunner struct{}
 
 func (r *defaultCmdRunner) Run(ctx context.Context, dir, command string, args ...string) error {
+	// #nosec G204 - command from configuration is trusted
 	cmd := exec.CommandContext(ctx, command, args...)
 	cmd.Dir = dir
 	return cmd.Run()

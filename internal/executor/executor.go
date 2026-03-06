@@ -26,6 +26,7 @@ func NewExecutor(cmd string) Executor {
 }
 
 func (e *defaultExecutor) Execute(ctx context.Context, logCh chan<- string) error {
+	// #nosec G204 - shell execution explicitly requested by gitpoll design
 	cmd := exec.CommandContext(ctx, "sh", "-c", e.command)
 
 	stdout, err := cmd.StdoutPipe()
