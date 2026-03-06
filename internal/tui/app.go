@@ -182,7 +182,7 @@ func (m *MonitorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *MonitorModel) headerView() string {
-	title := titleStyle.Render("Gitpoll TUI")
+	title := titleStyle.Render("GitPoll")
 	statusLine := fmt.Sprintf("Status: %s", m.status)
 	hashLine := fmt.Sprintf("Latest Commit: %s", m.latestHash)
 
