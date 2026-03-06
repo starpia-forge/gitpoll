@@ -1,7 +1,8 @@
 # gitpoll
 
-![Go Version](https://img.shields.io/github/go-mod/go-version/starpia-forge/gitpoll)
-![Latest Release](https://img.shields.io/github/v/release/starpia-forge/gitpoll)
+![Go Version](https://img.shields.io/github/go-mod/go-version/starpia-forge/gitpoll?logo=go)
+![Latest Release](https://img.shields.io/github/v/release/starpia-forge/gitpoll?logo=github)
+![Docker Image Version](https://img.shields.io/docker/v/starpia/gitpoll?logo=docker)
 ![CI/CD](https://github.com/starpia-forge/gitpoll/actions/workflows/ci-cd.yaml/badge.svg)
 
 A background worker program written in Go that monitors a target GitHub repository branch for changes. When a change is detected, it automatically pulls the latest state to the local machine and executes a specified command.
