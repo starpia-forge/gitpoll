@@ -11,7 +11,8 @@ on:
       - dev
 
 jobs:
-  continuous_integration:
+  ci:
+    name: continuous_integration
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -43,3 +44,34 @@ jobs:
         uses: securego/gosec@master
         with:
           args: ./...
+
+  release:
+    name: Release
+    needs: ci
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Build Binary
+        run: |
+          go build -o gitpoll ./cmd/gitpoll
+
+      - name: Semantic Release
+        uses: cycjimmy/semantic-release-action@v4
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+        with:
+          extra_plugins: |
+            @semantic-release/commit-analyzer
+            @semantic-release/release-notes-generator
+            @semantic-release/github
