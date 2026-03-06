@@ -9,6 +9,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 
+	"repo-gitpoll/internal/config"
 	"repo-gitpoll/internal/events"
 )
 
@@ -19,25 +20,27 @@ var (
 	logStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("250"))
 )
 
-// MainModel holds the state for the TUI
-type MainModel struct {
-	eventBus    events.Bus
-	cancelFunc  context.CancelFunc
+// MonitorModel holds the state for the TUI monitor
+type MonitorModel struct {
+	eventBus   events.Bus
+	cancelFunc context.CancelFunc
 
-	status      string
-	latestHash  string
-	logs        []string
-	maxLogs     int
-	viewport    viewport.Model
-	ready       bool
-	lastError   error
+	status     string
+	latestHash string
+	logs       []string
+	maxLogs    int
+	viewport   viewport.Model
+	ready      bool
+	lastError  error
 
-	eventCh     chan tea.Msg
+	eventCh chan tea.Msg
+	width   int
+	height  int
 }
 
-// NewApp creates a new bubbletea model initialized with the event bus
-func NewApp(bus events.Bus, cancelFunc context.CancelFunc) *MainModel {
-	m := &MainModel{
+// NewMonitorModel creates a new bubbletea model initialized with the event bus
+func NewMonitorModel(bus events.Bus, cancelFunc context.CancelFunc) *MonitorModel {
+	m := &MonitorModel{
 		eventBus:   bus,
 		cancelFunc: cancelFunc,
 		status:     "Polling",
@@ -85,15 +88,15 @@ func NewApp(bus events.Bus, cancelFunc context.CancelFunc) *MainModel {
 }
 
 // waitForEvents is a tea.Cmd that continuously reads from our event channel
-func (m *MainModel) waitForEvents() tea.Msg {
+func (m *MonitorModel) waitForEvents() tea.Msg {
 	return <-m.eventCh
 }
 
-func (m *MainModel) Init() tea.Cmd {
+func (m *MonitorModel) Init() tea.Cmd {
 	return m.waitForEvents
 }
 
-func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m *MonitorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
@@ -109,6 +112,8 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 		headerHeight := 8
 		if !m.ready {
 			m.viewport = viewport.New(msg.Width, msg.Height-headerHeight)
@@ -153,7 +158,7 @@ func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, tea.Batch(cmds...)
 }
 
-func (m *MainModel) View() string {
+func (m *MonitorModel) View() string {
 	if !m.ready {
 		return "\n  Initializing... (Waiting for resize event to set viewport)"
 	}
@@ -176,4 +181,147 @@ func (m *MainModel) View() string {
 	footer := infoStyle.Render("\nPress 'q' or 'Ctrl+C' to quit. Use Up/Down arrows to scroll logs.")
 
 	return body + footer
+}
+
+type MainState int
+
+const (
+	StateWizard MainState = iota
+	StateMonitor
+)
+
+type MainModel struct {
+	state   MainState
+	wizard  *WizardModel
+	monitor *MonitorModel
+
+	ConfigReadyCb func(*config.Config, *MainModel)
+	initCfg       *config.Config
+	isValid       bool
+	bus           events.Bus
+	cancelFunc    context.CancelFunc
+	width         int
+	height        int
+}
+
+func NewMainModel(cfg *config.Config, isValid bool, bus events.Bus, cancelFunc context.CancelFunc, configReadyCb func(*config.Config, *MainModel)) *MainModel {
+	m := &MainModel{
+		ConfigReadyCb: configReadyCb,
+		initCfg:       cfg,
+		isValid:       isValid,
+		bus:           bus,
+		cancelFunc:    cancelFunc,
+	}
+
+	if !isValid {
+		m.state = StateWizard
+		m.wizard = NewWizardModel(cfg)
+	} else {
+		m.state = StateMonitor
+		m.monitor = NewMonitorModel(bus, cancelFunc)
+		// We can't trigger the callback directly from here safely if it requires Bubble Tea cmds,
+		// but since we start in StateMonitor, the caller can just start everything.
+		// Wait, we need a way to tell the caller that config is ready if we bypassed the wizard.
+		// A cleaner way is to handle that in the Init() function using a command.
+	}
+
+	return m
+}
+
+type SetupMonitorMsg struct {
+	Monitor *MonitorModel
+}
+
+func (m *MainModel) SetupMonitor(mon *MonitorModel) tea.Cmd {
+	return func() tea.Msg {
+		return SetupMonitorMsg{Monitor: mon}
+	}
+}
+
+func (m *MainModel) Init() tea.Cmd {
+	if m.state == StateWizard {
+		return m.wizard.Init()
+	}
+
+	// If starting directly in monitor, notify caller
+	if m.ConfigReadyCb != nil {
+		go m.ConfigReadyCb(m.initCfg, m)
+	}
+	return m.monitor.Init()
+}
+
+func (m *MainModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
+	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+
+		if m.state == StateMonitor && m.monitor != nil {
+			var mModel tea.Model
+			mModel, cmd = m.monitor.Update(msg)
+			if mon, ok := mModel.(*MonitorModel); ok {
+				m.monitor = mon
+			}
+			return m, cmd
+		}
+
+	case ConfigReadyMsg:
+		m.state = StateMonitor
+		m.monitor = NewMonitorModel(m.bus, m.cancelFunc)
+
+		if m.ConfigReadyCb != nil {
+			go m.ConfigReadyCb(msg.Config, m)
+		}
+
+		// If we already received window size, pass it to monitor
+		if m.width > 0 && m.height > 0 {
+			m.monitor.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		}
+
+		return m, m.monitor.Init()
+
+	case SetupMonitorMsg:
+		m.monitor = msg.Monitor
+		// Simulate resize if we already received it
+		if m.width > 0 && m.height > 0 {
+			m.monitor.Update(tea.WindowSizeMsg{Width: m.width, Height: m.height})
+		}
+		return m, m.monitor.Init()
+	}
+
+	if m.state == StateWizard {
+		var wModel tea.Model
+		wModel, cmd = m.wizard.Update(msg)
+
+		if w, ok := wModel.(*WizardModel); ok {
+			m.wizard = w
+		}
+
+		// If wizard returned ConfigReadyMsg in Batch or Cmd
+		// It will be caught in the next Update cycle.
+		return m, cmd
+	}
+
+	var monModel tea.Model
+	monModel, cmd = m.monitor.Update(msg)
+	if mon, ok := monModel.(*MonitorModel); ok {
+		m.monitor = mon
+	}
+
+	return m, cmd
+}
+
+func (m *MainModel) View() string {
+	if m.state == StateWizard {
+		if m.wizard != nil {
+			return m.wizard.View()
+		}
+		return "Initializing wizard..."
+	}
+	if m.monitor != nil {
+		return m.monitor.View()
+	}
+	return "Initializing monitor..."
 }

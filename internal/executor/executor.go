@@ -7,6 +7,8 @@ import (
 	"io"
 	"os/exec"
 	"sync"
+
+	"repo-gitpoll/internal/config"
 )
 
 // Executor handles the execution of arbitrary shell commands
@@ -19,9 +21,9 @@ type defaultExecutor struct {
 }
 
 // NewExecutor creates a new command executor
-func NewExecutor(cmd string) Executor {
+func NewExecutor(cfg *config.Config) Executor {
 	return &defaultExecutor{
-		command: cmd,
+		command: cfg.Command,
 	}
 }
 

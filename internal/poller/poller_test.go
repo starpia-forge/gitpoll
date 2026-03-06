@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"repo-gitpoll/internal/config"
 	"repo-gitpoll/internal/events"
 )
 
@@ -28,7 +29,8 @@ func TestPoller_BasicPolling(t *testing.T) {
 
 	outCh := make(chan interface{}, 10)
 
-	p := NewPoller("https://github.com/test/repo", "main", mockClient)
+	cfg := &config.Config{RepoURL: "https://github.com/test/repo", Branch: "main"}
+	p := NewPoller(cfg, mockClient)
 	p.(*defaultPoller).baseInterval = 10 * time.Millisecond
 	p.(*defaultPoller).maxJitter = 5 * time.Millisecond
 
@@ -73,7 +75,8 @@ func TestPoller_ExponentialBackoff(t *testing.T) {
 
 	outCh := make(chan interface{}, 10)
 
-	p := NewPoller("https://github.com/test/repo", "main", mockClient)
+	cfg := &config.Config{RepoURL: "https://github.com/test/repo", Branch: "main"}
+	p := NewPoller(cfg, mockClient)
 	p.(*defaultPoller).baseInterval = 5 * time.Millisecond
 	p.(*defaultPoller).maxJitter = 1 * time.Millisecond
 	p.(*defaultPoller).backoffBase = 10 * time.Millisecond
@@ -104,7 +107,8 @@ func TestPoller_GracefulShutdown(t *testing.T) {
 
 	outCh := make(chan interface{}, 10)
 
-	p := NewPoller("https://github.com/test/repo", "main", mockClient)
+	cfg := &config.Config{RepoURL: "https://github.com/test/repo", Branch: "main"}
+	p := NewPoller(cfg, mockClient)
 	p.(*defaultPoller).baseInterval = 10 * time.Millisecond
 	p.(*defaultPoller).maxJitter = 1 * time.Millisecond
 
