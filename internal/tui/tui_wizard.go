@@ -56,7 +56,7 @@ func NewWizardModel(initialConfig *config.Config) *WizardModel {
 				Value(&repoURL).
 				Validate(func(str string) error {
 					if str == "" {
-						return fmt.Errorf("Repository URL is required")
+						return fmt.Errorf("repository URL is required")
 					}
 					return nil
 				}),
@@ -67,7 +67,7 @@ func NewWizardModel(initialConfig *config.Config) *WizardModel {
 				Value(&repoDir).
 				Validate(func(str string) error {
 					if str == "" {
-						return fmt.Errorf("Local directory is required")
+						return fmt.Errorf("local directory is required")
 					}
 					return nil
 				}),
@@ -78,7 +78,7 @@ func NewWizardModel(initialConfig *config.Config) *WizardModel {
 				Value(&branch).
 				Validate(func(str string) error {
 					if str == "" {
-						return fmt.Errorf("Branch is required")
+						return fmt.Errorf("branch is required")
 					}
 					return nil
 				}),
@@ -89,7 +89,7 @@ func NewWizardModel(initialConfig *config.Config) *WizardModel {
 				Value(&command).
 				Validate(func(str string) error {
 					if str == "" {
-						return fmt.Errorf("Command is required")
+						return fmt.Errorf("command is required")
 					}
 					return nil
 				}),
@@ -100,10 +100,10 @@ func NewWizardModel(initialConfig *config.Config) *WizardModel {
 				Value(&intervalStr).
 				Validate(func(str string) error {
 					if str == "" {
-						return fmt.Errorf("Interval is required")
+						return fmt.Errorf("interval is required")
 					}
 					if _, err := strconv.Atoi(str); err != nil {
-						return fmt.Errorf("Interval must be an integer")
+						return fmt.Errorf("interval must be an integer")
 					}
 					return nil
 				}),
