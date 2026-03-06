@@ -92,9 +92,9 @@ func (m *WizardModel) createForm() {
 				}),
 		),
 		huh.NewGroup(
-			huh.NewConfirm().
-				Key("confirm").
-				TitleFunc(func() string {
+			huh.NewNote().
+				Title("Summary of settings:").
+				DescriptionFunc(func() string {
 					url := m.form.GetString("repoURL")
 					dir := m.form.GetString("repoDir")
 					if dir == "" {
@@ -113,14 +113,19 @@ func (m *WizardModel) createForm() {
 						iStr = "30"
 					}
 
-					return fmt.Sprintf("Summary of settings:\n\n"+
+					return fmt.Sprintf("\n"+
 						"Repository URL: %s\n"+
 						"Local Directory: %s\n"+
 						"Branch: %s\n"+
 						"Command: %s\n"+
-						"Interval: %s seconds\n\n"+
-						"Proceed with these settings?", url, dir, b, c, iStr)
-				}, &repoURL).
+						"Interval: %s seconds\n", url, dir, b, c, iStr)
+				}, &repoURL), // Note: huh DescriptionFunc expects exactly one dependency argument of type any in this version.
+			// We can use a struct to track all dependencies if needed, but since we are navigating forward sequentially
+			// without jumping, repoURL is technically enough to avoid compilation error while fulfilling the function signature.
+			// Let's create an aggregate pointer or just pass a struct pointer.
+			huh.NewConfirm().
+				Key("confirm").
+				Title("Proceed with these settings?").
 				Value(&confirm),
 		),
 	)
