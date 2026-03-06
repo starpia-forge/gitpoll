@@ -1,5 +1,9 @@
 # gitpoll
 
+![Go Version](https://img.shields.io/github/go-mod/go-version/starpia-forge/gitpoll)
+![Latest Release](https://img.shields.io/github/v/release/starpia-forge/gitpoll)
+![CI/CD](https://github.com/starpia-forge/gitpoll/actions/workflows/ci-cd.yaml/badge.svg)
+
 A background worker program written in Go that monitors a target GitHub repository branch for changes. When a change is detected, it automatically pulls the latest state to the local machine and executes a specified command.
 
 The application currently features a Terminal User Interface (TUI) built with [Bubble Tea](https://github.com/charmbracelet/bubbletea), and is designed with an event-driven architecture to easily support a future Web GUI.
@@ -82,3 +86,7 @@ export GITPOLL_INTERVAL="30s"
 ```bash
 go run ./cmd/gitpoll/main.go
 ```
+
+## License
+
+All code was written by `jules`.
