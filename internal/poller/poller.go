@@ -3,9 +3,11 @@ package poller
 import (
 	"context"
 	"math/rand"
-	"strings"
 	"time"
-	"os/exec"
+
+	gogit "github.com/go-git/go-git/v5"
+	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/storage/memory"
 
 	"repo-gitpoll/internal/config"
 	"repo-gitpoll/internal/events"
@@ -16,20 +18,26 @@ type GitClient interface {
 	LsRemote(ctx context.Context, repoURL, branch string) (string, error)
 }
 
-// defaultGitClient implements GitClient using os/exec
+// defaultGitClient implements GitClient using go-git
 type defaultGitClient struct{}
 
 func (c *defaultGitClient) LsRemote(ctx context.Context, repoURL, branch string) (string, error) {
-	// #nosec G204 - command relies on variables but is explicitly internal to the background worker configuration
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", repoURL, branch)
-	out, err := cmd.Output()
+	rem := gogit.NewRemote(memory.NewStorage(), &gitconfig.RemoteConfig{
+		Name: "origin",
+		URLs: []string{repoURL},
+	})
+
+	refs, err := rem.ListContext(ctx, &gogit.ListOptions{})
 	if err != nil {
 		return "", err
 	}
-	parts := strings.Fields(string(out))
-	if len(parts) > 0 {
-		return parts[0], nil
+
+	for _, ref := range refs {
+		if ref.Name().Short() == branch {
+			return ref.Hash().String(), nil
+		}
 	}
+
 	return "", nil
 }
 
