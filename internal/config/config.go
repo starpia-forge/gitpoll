@@ -10,11 +10,12 @@ import (
 
 // Config represents the GitPoll configuration
 type Config struct {
-	RepoURL  string        `json:"repo_url,omitempty"`
-	RepoDir  string        `json:"repo_dir,omitempty"`
-	Branch   string        `json:"branch,omitempty"`
-	Command  string        `json:"command,omitempty"`
-	Interval time.Duration `json:"interval,omitempty"`
+	RepoURL          string        `json:"repo_url,omitempty"`
+	RepoDir          string        `json:"repo_dir,omitempty"`
+	Branch           string        `json:"branch,omitempty"`
+	Command          string        `json:"command,omitempty"`
+	Interval         time.Duration `json:"interval,omitempty"`
+	ExecuteOnStartup bool          `json:"execute_on_startup"`
 }
 
 // Marshal stringifies a value to JSON byte array

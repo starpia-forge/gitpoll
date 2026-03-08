@@ -29,7 +29,7 @@ func TestPoller_BasicPolling(t *testing.T) {
 
 	outCh := make(chan interface{}, 10)
 
-	cfg := &config.Config{RepoURL: "https://github.com/test/repo", Branch: "main"}
+	cfg := &config.Config{RepoURL: "https://github.com/test/repo", Branch: "main", ExecuteOnStartup: true}
 	p := NewPoller(cfg, mockClient)
 	p.(*defaultPoller).baseInterval = 10 * time.Millisecond
 	p.(*defaultPoller).maxJitter = 5 * time.Millisecond
@@ -54,6 +54,49 @@ func TestPoller_BasicPolling(t *testing.T) {
 
 	mockClient.hashToReturn = "fedcba0987654321"
 
+	select {
+	case msg := <-outCh:
+		updateMsg, ok := msg.(events.UpdateDetectedMsg)
+		if !ok {
+			t.Fatalf("Expected UpdateDetectedMsg, got %T", msg)
+		}
+		if updateMsg.NewHash != "fedcba0987654321" {
+			t.Errorf("Expected hash fedcba0987654321, got %s", updateMsg.NewHash)
+		}
+	case <-time.After(1 * time.Second):
+		t.Fatal("Timeout waiting for second polling update")
+	}
+}
+
+func TestPoller_BasicPolling_NoExecuteOnStartup(t *testing.T) {
+	mockClient := &mockGitClient{
+		hashToReturn: "1234567890abcdef",
+		errToReturn:  nil,
+	}
+
+	outCh := make(chan interface{}, 10)
+
+	cfg := &config.Config{RepoURL: "https://github.com/test/repo", Branch: "main", ExecuteOnStartup: false}
+	p := NewPoller(cfg, mockClient)
+	p.(*defaultPoller).baseInterval = 10 * time.Millisecond
+	p.(*defaultPoller).maxJitter = 5 * time.Millisecond
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	go p.Start(ctx, outCh)
+
+	// Since ExecuteOnStartup is false, the first update should not send an event
+	select {
+	case <-outCh:
+		t.Fatal("Expected no update message on first poll when ExecuteOnStartup is false")
+	case <-time.After(50 * time.Millisecond):
+		// Expected timeout
+	}
+
+	mockClient.hashToReturn = "fedcba0987654321"
+
+	// The second update with a new hash should send an event
 	select {
 	case msg := <-outCh:
 		updateMsg, ok := msg.(events.UpdateDetectedMsg)
