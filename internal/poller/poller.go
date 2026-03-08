@@ -3,11 +3,13 @@ package poller
 import (
 	"context"
 	"math/rand"
-	"strings"
+	"os"
+	"path/filepath"
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/transport"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
 
@@ -31,9 +33,32 @@ func (c *defaultGitClient) LsRemote(ctx context.Context, repoURL, branch string)
 
 	listOpts := &gogit.ListOptions{}
 
-	// If it's an SSH URL, try to use default SSH auth
-	if strings.HasPrefix(repoURL, "git@") || strings.HasPrefix(repoURL, "ssh://") {
-		if auth, err := ssh.DefaultAuthBuilder("git"); err == nil {
+	if ep, err := transport.NewEndpoint(repoURL); err == nil && ep.Protocol == "ssh" {
+		user := ep.User
+		if user == "" {
+			user = "git"
+		}
+
+		// Try ssh-agent first
+		auth, authErr := ssh.DefaultAuthBuilder(user)
+
+		// Fallback to local keys if agent is not available
+		if authErr != nil {
+			if homeDir, err := os.UserHomeDir(); err == nil {
+				keys := []string{"id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"}
+				for _, key := range keys {
+					keyPath := filepath.Join(homeDir, ".ssh", key)
+					if _, err := os.Stat(keyPath); err == nil {
+						if pkAuth, err := ssh.NewPublicKeysFromFile(user, keyPath, ""); err == nil {
+							auth = pkAuth
+							break
+						}
+					}
+				}
+			}
+		}
+
+		if auth != nil {
 			listOpts.Auth = auth
 		}
 	}
