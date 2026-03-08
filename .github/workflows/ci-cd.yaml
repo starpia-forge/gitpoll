@@ -34,6 +34,7 @@ jobs:
         with:
           version: latest
           args: --timeout=5m
+          install-mode: goinstall
 
       - name: Security Scan (gosec)
         uses: securego/gosec@master
