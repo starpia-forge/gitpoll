@@ -1,6 +1,6 @@
 module repo-gitpoll
 
-go 1.25.7
+go 1.26.1
 
 require (
 	github.com/charmbracelet/bubbles v1.0.0

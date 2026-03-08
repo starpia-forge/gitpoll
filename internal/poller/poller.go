@@ -3,9 +3,15 @@ package poller
 import (
 	"context"
 	"math/rand"
-	"strings"
+	"os"
+	"path/filepath"
 	"time"
-	"os/exec"
+
+	gogit "github.com/go-git/go-git/v5"
+	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/transport"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/go-git/go-git/v5/storage/memory"
 
 	"repo-gitpoll/internal/config"
 	"repo-gitpoll/internal/events"
@@ -16,20 +22,58 @@ type GitClient interface {
 	LsRemote(ctx context.Context, repoURL, branch string) (string, error)
 }
 
-// defaultGitClient implements GitClient using os/exec
+// defaultGitClient implements GitClient using go-git
 type defaultGitClient struct{}
 
 func (c *defaultGitClient) LsRemote(ctx context.Context, repoURL, branch string) (string, error) {
-	// #nosec G204 - command relies on variables but is explicitly internal to the background worker configuration
-	cmd := exec.CommandContext(ctx, "git", "ls-remote", repoURL, branch)
-	out, err := cmd.Output()
+	rem := gogit.NewRemote(memory.NewStorage(), &gitconfig.RemoteConfig{
+		Name: "origin",
+		URLs: []string{repoURL},
+	})
+
+	listOpts := &gogit.ListOptions{}
+
+	if ep, err := transport.NewEndpoint(repoURL); err == nil && ep.Protocol == "ssh" {
+		user := ep.User
+		if user == "" {
+			user = "git"
+		}
+
+		// Try ssh-agent first
+		auth, authErr := ssh.DefaultAuthBuilder(user)
+
+		// Fallback to local keys if agent is not available
+		if authErr != nil {
+			if homeDir, err := os.UserHomeDir(); err == nil {
+				keys := []string{"id_ed25519", "id_rsa", "id_ecdsa", "id_dsa"}
+				for _, key := range keys {
+					keyPath := filepath.Join(homeDir, ".ssh", key)
+					if _, err := os.Stat(keyPath); err == nil {
+						if pkAuth, err := ssh.NewPublicKeysFromFile(user, keyPath, ""); err == nil {
+							auth = pkAuth
+							break
+						}
+					}
+				}
+			}
+		}
+
+		if auth != nil {
+			listOpts.Auth = auth
+		}
+	}
+
+	refs, err := rem.ListContext(ctx, listOpts)
 	if err != nil {
 		return "", err
 	}
-	parts := strings.Fields(string(out))
-	if len(parts) > 0 {
-		return parts[0], nil
+
+	for _, ref := range refs {
+		if ref.Name().Short() == branch {
+			return ref.Hash().String(), nil
+		}
 	}
+
 	return "", nil
 }
 

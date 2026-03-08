@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:alpine AS builder
+FROM golang:1.26.1-alpine AS builder
 WORKDIR /app
 
 # Download dependencies
@@ -15,8 +15,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -o gitpoll ./cmd/gitpoll
 # Final stage
 FROM alpine:latest
 
-# Install necessary runtime dependencies (git, bash, openssh)
-RUN apk add --no-cache git bash openssh
+# Install necessary runtime dependencies (bash, openssh)
+RUN apk add --no-cache bash openssh
 
 WORKDIR /app
 
