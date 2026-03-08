@@ -40,6 +40,7 @@ func NewWizardModel(initialConfig *config.Config) *WizardModel {
 func (m *WizardModel) createForm() {
 	var repoURL, repoDir, branch, command, intervalStr string
 	var confirm bool
+	var executeOnStartup bool
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -92,6 +93,12 @@ func (m *WizardModel) createForm() {
 				}),
 		),
 		huh.NewGroup(
+			huh.NewConfirm().
+				Key("executeOnStartup").
+				Title("Execute command on startup regardless of git state?").
+				Value(&executeOnStartup),
+		),
+		huh.NewGroup(
 			huh.NewNote().
 				Title("Summary of settings:").
 				DescriptionFunc(func() string {
@@ -112,13 +119,15 @@ func (m *WizardModel) createForm() {
 					if iStr == "" {
 						iStr = "30"
 					}
+					execOnStartup := m.form.GetBool("executeOnStartup")
 
 					return fmt.Sprintf("\n"+
 						"Repository URL: %s\n"+
 						"Local Directory: %s\n"+
 						"Branch: %s\n"+
 						"Command: %s\n"+
-						"Interval: %s seconds\n", url, dir, b, c, iStr)
+						"Interval: %s seconds\n"+
+						"Execute on Startup: %t\n", url, dir, b, c, iStr, execOnStartup)
 				}, &repoURL), // Note: huh DescriptionFunc expects exactly one dependency argument of type any in this version.
 			// We can use a struct to track all dependencies if needed, but since we are navigating forward sequentially
 			// without jumping, repoURL is technically enough to avoid compilation error while fulfilling the function signature.
@@ -164,6 +173,7 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		branch := m.form.GetString("branch")
 		command := m.form.GetString("command")
 		intervalStr := m.form.GetString("interval")
+		executeOnStartup := m.form.GetBool("executeOnStartup")
 
 		if repoDir == "" {
 			cwd, err := os.Getwd()
@@ -185,11 +195,12 @@ func (m *WizardModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		intervalSeconds, _ := strconv.Atoi(intervalStr)
 
 		newConfig := &config.Config{
-			RepoURL:  repoURL,
-			RepoDir:  repoDir,
-			Branch:   branch,
-			Command:  command,
-			Interval: time.Duration(intervalSeconds) * time.Second,
+			RepoURL:          repoURL,
+			RepoDir:          repoDir,
+			Branch:           branch,
+			Command:          command,
+			Interval:         time.Duration(intervalSeconds) * time.Second,
+			ExecuteOnStartup: executeOnStartup,
 		}
 
 		savePath := config.GetLocalConfigPath()

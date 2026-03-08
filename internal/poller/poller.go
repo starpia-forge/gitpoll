@@ -88,10 +88,11 @@ type defaultPoller struct {
 
 	client GitClient
 
-	baseInterval time.Duration
-	maxJitter    time.Duration
-	backoffBase  time.Duration
-	backoffMax   time.Duration
+	baseInterval     time.Duration
+	maxJitter        time.Duration
+	backoffBase      time.Duration
+	backoffMax       time.Duration
+	executeOnStartup bool
 
 	lastHash string
 }
@@ -107,13 +108,14 @@ func NewPoller(cfg *config.Config, client GitClient) Poller {
 	}
 
 	return &defaultPoller{
-		repoURL:      cfg.RepoURL,
-		branch:       cfg.Branch,
-		client:       client,
-		baseInterval: interval,
-		maxJitter:    20 * time.Second,
-		backoffBase:  5 * time.Second,
-		backoffMax:   5 * time.Minute,
+		repoURL:          cfg.RepoURL,
+		branch:           cfg.Branch,
+		client:           client,
+		baseInterval:     interval,
+		maxJitter:        20 * time.Second,
+		backoffBase:      5 * time.Second,
+		backoffMax:       5 * time.Minute,
+		executeOnStartup: cfg.ExecuteOnStartup,
 	}
 }
 
@@ -153,11 +155,17 @@ func (p *defaultPoller) Start(ctx context.Context, out chan<- interface{}) {
 		backoff = 0
 
 		if hash != "" && hash != p.lastHash {
+			isFirstPoll := p.lastHash == ""
 			p.lastHash = hash
-			select {
-			case out <- events.UpdateDetectedMsg{NewHash: hash}:
-			case <-ctx.Done():
-				return
+
+			if isFirstPoll && !p.executeOnStartup {
+				// Skip emitting the initial update message
+			} else {
+				select {
+				case out <- events.UpdateDetectedMsg{NewHash: hash}:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
 
