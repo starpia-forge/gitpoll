@@ -3,10 +3,12 @@ package poller
 import (
 	"context"
 	"math/rand"
+	"strings"
 	"time"
 
 	gogit "github.com/go-git/go-git/v5"
 	gitconfig "github.com/go-git/go-git/v5/config"
+	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 	"github.com/go-git/go-git/v5/storage/memory"
 
 	"repo-gitpoll/internal/config"
@@ -27,7 +29,16 @@ func (c *defaultGitClient) LsRemote(ctx context.Context, repoURL, branch string)
 		URLs: []string{repoURL},
 	})
 
-	refs, err := rem.ListContext(ctx, &gogit.ListOptions{})
+	listOpts := &gogit.ListOptions{}
+
+	// If it's an SSH URL, try to use default SSH auth
+	if strings.HasPrefix(repoURL, "git@") || strings.HasPrefix(repoURL, "ssh://") {
+		if auth, err := ssh.DefaultAuthBuilder("git"); err == nil {
+			listOpts.Auth = auth
+		}
+	}
+
+	refs, err := rem.ListContext(ctx, listOpts)
 	if err != nil {
 		return "", err
 	}
